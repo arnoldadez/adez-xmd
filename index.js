@@ -20,7 +20,7 @@ const OWNER = {
     number: "254111783552"
 };
 
-// Web server (always serves QR)
+// Web server (always serves QR + Pair info)
 app.get('/', async (req, res) => {
     const sessionExists = fs.existsSync(`${SESSION_DIR}/creds.json`);
     
@@ -46,7 +46,6 @@ app.get('/', async (req, res) => {
         </html>
         `);
     } else {
-        // Wait for QR
         res.send(`
         <html>
         <head><title>ADEZ XMD</title>
@@ -61,10 +60,9 @@ app.get('/', async (req, res) => {
             <div class="container">
                 <h1>🔴 ADEZ XMD</h1>
                 <div class="status">⏳ Waiting for QR...</div>
-                <p>Bot is starting. Please wait 30 seconds.</p>
+                <p>Check your Render Logs for your Pairing Code!</p>
                 <p><strong>Owner:</strong> ${OWNER.name}</p>
                 <p><strong>Number:</strong> +${OWNER.number}</p>
-                <p>Or use Pair Code: <code>!pair ${OWNER.number}</code></p>
             </div>
         </body>
         </html>
@@ -91,51 +89,20 @@ async function startBot() {
 
     global.sock = sock;
 
-    // QR Handler
+    // QR Handler (fallback)
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
-            console.log('📱 QR Code Generated');
-            // Save QR to file for the web server
-            const qrImage = await qrcode.toDataURL(qr);
-            const html = `
-            <html>
-            <head><title>ADEZ XMD</title>
-            <style>
-                body { font-family: Arial; text-align: center; background: #f0f0f0; padding: 20px; }
-                .container { max-width: 400px; margin: auto; background: white; padding: 30px; border-radius: 15px; }
-                img { width: 100%; max-width: 300px; border: 5px solid #25D366; border-radius: 10px; }
-                .status { background: #25D366; color: white; padding: 10px; border-radius: 5px; }
-            </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1>🔴 ADEZ XMD</h1>
-                    <div class="status">📱 Scan to Connect</div>
-                    <img src="${qrImage}" alt="QR"/>
-                    <p><strong>Owner:</strong> ${OWNER.name}</p>
-                    <p><strong>Number:</strong> +${OWNER.number}</p>
-                    <p>Or use Pair Code: <code>!pair ${OWNER.number}</code></p>
-                </div>
-                <script>
-                    setTimeout(() => { location.reload(); }, 30000);
-                </script>
-            </body>
-            </html>
-            `;
-            fs.writeFileSync('./qr.html', html);
+            console.log('📱 QR Code Generated (Fallback)');
         }
 
         if (connection === 'close') {
             const statusCode = lastDisconnect?.error?.output?.statusCode;
             console.log(`❌ Disconnected: ${statusCode || 'unknown'}`);
-            
-            // Only retry if it's not a 405
             if (statusCode !== 405) {
                 setTimeout(startBot, 5000);
             } else {
-                console.log('⚠️ 405 error. Waiting 30s...');
                 setTimeout(startBot, 30000);
             }
         }
@@ -144,8 +111,26 @@ async function startBot() {
             console.log('✅ ADEZ XMD is ONLINE!');
             console.log(`👤 Owner: ${OWNER.name}`);
             console.log(`📞 +${OWNER.number}`);
+            
+            // Send a startup message to the owner (optional)
+            // await sock.sendMessage(`${OWNER.number}@s.whatsapp.net`, { text: '✅ Bot is now online!' });
         }
     });
+
+    // --- AUTO-PAIR CODE GENERATION ON FIRST START ---
+    if (!fs.existsSync(`${SESSION_DIR}/creds.json`)) {
+        console.log('🔑 No session found. Generating Pair Code for owner...');
+        try {
+            const code = await sock.requestPairingCode(OWNER.number);
+            console.log('=========================================');
+            console.log(`📱 PAIRING CODE FOR +${OWNER.number}: ${code}`);
+            console.log('=========================================');
+            console.log('Open WhatsApp → Settings → Linked Devices → Link with Phone Number');
+            console.log(`Enter the code: ${code}`);
+        } catch (e) {
+            console.log('❌ Failed to generate pair code:', e.message);
+        }
+    }
 
     // Message Handler
     sock.ev.on('messages.upsert', async (m) => {
@@ -159,24 +144,6 @@ async function startBot() {
             const cmd = args[0].toLowerCase().replace('!', '');
 
             if (body.startsWith('!')) {
-                // Pair Code
-                if (cmd === 'pair') {
-                    const number = args[1];
-                    if (!number) {
-                        await sock.sendMessage(from, { text: `❌ Usage: !pair ${OWNER.number}` });
-                        return;
-                    }
-                    try {
-                        const clean = number.replace(/[^0-9]/g, '');
-                        const code = await sock.requestPairingCode(clean);
-                        await sock.sendMessage(from, { text: `✅ Pairing code: ${code}\n\nOpen WhatsApp → Settings → Linked Devices → Link with Phone Number → Enter this code.` });
-                    } catch (e) {
-                        await sock.sendMessage(from, { text: `❌ Error: ${e.message}` });
-                    }
-                    return;
-                }
-
-                // Basic commands
                 if (cmd === 'ping') {
                     await sock.sendMessage(from, { text: 'Pong! 🏓' });
                 }
@@ -184,7 +151,7 @@ async function startBot() {
                     await sock.sendMessage(from, { text: `👤 Owner: ${OWNER.name}\n📞 +${OWNER.number}` });
                 }
                 if (cmd === 'menu') {
-                    await sock.sendMessage(from, { text: `📌 ADEZ XMD MENU\n\n!ping - Test bot\n!owner - Show owner\n!pair <number> - Get pair code\n!menu - This menu` });
+                    await sock.sendMessage(from, { text: `📌 ADEZ XMD MENU\n\n!ping - Test bot\n!owner - Show owner\n!menu - This menu` });
                 }
                 if (cmd === 'uptime') {
                     const uptime = process.uptime();

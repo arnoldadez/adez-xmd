@@ -1,21 +1,50 @@
-# ADEZ XMD 
+<p align="center">
+  <img src="https://res.cloudinary.com/dqxlb29uz/image/upload/v1786879188/bwm_uploads/media-1786879188852.jpg" alt="ADEZ TECH Logo" width="120" height="120" style="border-radius: 50%;">
+</p>
 
-**Owner:** Arnold Adez  
-**Number:** +254111783552  
+<h1 align="center">🔴 ADEZ XMD — WhatsApp Bot</h1>
+<p align="center">
+  <strong>Building Solutions, Powering Futures</strong><br>
+  <em>By Arnold Adez</em>
+</p>
 
-## Deploy on Render
+<p align="center">
+  <a href="https://adez-xmd.onrender.com"><img src="https://img.shields.io/badge/Status-Online-brightgreen?style=for-the-badge&logo=whatsapp"></a>
+  <a href="https://render.com/deploy"><img src="https://img.shields.io/badge/Deploy%20on-Render-blue?style=for-the-badge&logo=render"></a>
+</p>
+
+---
+
+## 📖 About ADEZ XMD
+
+**ADEZ XMD** is a powerful, fully-featured WhatsApp bot built with **Baileys** and designed for 24/7 operation on **Render**. It supports **200+ commands**, automatic pairing, and modern web interfaces.
+
+- **Owner:** Arnold Adez (+254111783552)
+- **Built with:** Node.js 20, Baileys, Express
+- **No Chrome/Puppeteer** — lightweight and fast
+
+---
+
+## 🌐 Quick Links
+
+| Service | URL |
+|---------|-----|
+| **Live Bot** | `https://adez-xmd.onrender.com` |
+| **Pair Code Page** | `https://adez-xmd.onrender.com/pair` |
+| **GitHub Repo** | `https://github.com/arnoldadez/adez-xmd` |
+
+---
+
+## 🚀 Deploy on Render
+
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
 
-## Features
-- Pair Code support
-- QR fallback
-- Node.js 20 LTS
-- No Chrome/Puppeteer
-- Ready for 200+ commands
+> **Note:** Set your environment variable `NODE_VERSION` to `20` for best performance.
 
-## Commands
-- `!ping` - Test bot
-- `!owner` - Show owner
-- `!pair <number>` - Get pairing code
-- `!menu` - Show menu
-- `!uptime` - Bot uptime
+---
+
+## 📋 Commands List
+
+> Prefix: `!`
+
+### 🤖 AI Commands

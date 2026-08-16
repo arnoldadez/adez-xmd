@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: adez-xmd-docker
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+    autoDeploy: true

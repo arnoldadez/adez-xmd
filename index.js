@@ -1,7 +1,7 @@
 // Crypto polyfill for Render
 global.crypto = require('crypto');
 
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, Browsers } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode');
 const express = require('express');
 const fs = require('fs');
@@ -70,6 +70,42 @@ app.get('/', async (req, res) => {
     }
 });
 
+// --- API ENDPOINTS ---
+app.get('/status', (req, res) => {
+    const sessionExists = fs.existsSync(`${SESSION_DIR}/creds.json`);
+    res.json({
+        status: sessionExists ? 'online' : 'waiting',
+        owner: OWNER.name,
+        number: OWNER.number
+    });
+});
+
+app.get('/api/pair', async (req, res) => {
+    const number = req.query.number?.replace(/[^0-9]/g, '');
+    if (!number || number.length < 10) {
+        return res.json({ success: false, message: 'Invalid number' });
+    }
+    try {
+        if (!global.sock) {
+            return res.json({ success: false, message: 'Bot is starting, please wait 30s' });
+        }
+        const code = await global.sock.requestPairingCode(number);
+        res.json({ success: true, code });
+    } catch (e) {
+        res.json({ success: false, message: e.message });
+    }
+});
+
+// Serve the pair page
+app.get('/pair', (req, res) => {
+    const pairPath = __dirname + '/pair.html';
+    if (fs.existsSync(pairPath)) {
+        res.sendFile(pairPath);
+    } else {
+        res.send('Please create pair.html file first.');
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`🌐 Web UI: http://localhost:${PORT}`);
 });
@@ -115,6 +151,17 @@ async function startBot() {
             console.log('✅ ADEZ XMD is ONLINE!');
             console.log(`👤 Owner: ${OWNER.name}`);
             console.log(`📞 +${OWNER.number}`);
+
+            // --- AUTO SET PROFILE PICTURE ---
+            try {
+                const logoUrl = 'https://res.cloudinary.com/dqxlb29uz/image/upload/v1786879188/bwm_uploads/media-1786879188852.jpg';
+                const response = await fetch(logoUrl);
+                const buffer = await response.arrayBuffer();
+                await sock.updateProfilePicture(sock.user.id, Buffer.from(buffer), 'image/jpeg');
+                console.log('✅ Bot profile picture set successfully!');
+            } catch (e) {
+                console.log('⚠️ Could not set profile picture:', e.message);
+            }
         }
     });
 
@@ -152,7 +199,7 @@ async function startBot() {
                     await sock.sendMessage(from, { text: `👤 Owner: ${OWNER.name}\n📞 +${OWNER.number}` });
                 }
                 if (cmd === 'menu') {
-                    await sock.sendMessage(from, { text: `📌 ADEZ XMD MENU\n\n!ping - Test bot\n!owner - Show owner\n!menu - This menu` });
+                    await sock.sendMessage(from, { text: `📌 ADEZ XMD MENU\n\n!ping - Test bot\n!owner - Show owner\n!menu - This menu\n!uptime - Bot uptime` });
                 }
                 if (cmd === 'uptime') {
                     const uptime = process.uptime();

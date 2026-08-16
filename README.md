@@ -48,3 +48,30 @@
 > Prefix: `!`
 
 ### 🤖 AI Commands
+
+---
+
+## 🛠️ Basic Commands (For Testing)
+
+| Command | Description |
+|---------|-------------|
+| `!ping` | Check if bot is online |
+| `!owner` | Show bot owner info |
+| `!menu` | Show all command categories |
+| `!uptime` | Show bot uptime |
+
+---
+
+## 🔑 How to Connect (Pair Code)
+
+1. Visit **[`https://adez-xmd.onrender.com/pair`](https://adez-xmd.onrender.com/pair)**
+2. Enter your phone number (e.g. `254111783552`)
+3. Click **Get Code**
+4. Copy the 8-digit code
+5. Open WhatsApp → **Settings** → **Linked Devices** → **Link with Phone Number**
+6. Enter the code and connect!
+
+---
+
+## 📂 File Structure
+

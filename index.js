@@ -1,80 +1,6 @@
-// Crypto polyfill for Render
-global.crypto = require('crypto');
-
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers } = require('@whiskeysockets/baileys');
-const qrcode = require('qrcode');
-const express = require('express');
-const fs = require('fs');
-const pino = require('pino');
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Session folder
-const SESSION_DIR = './session';
-if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR);
-
-// Owner details
-const OWNER = {
-    name: "Arnold Adez",
-    number: "254111783552"
-};
-
-// Web server (always serves QR + Pair info)
-app.get('/', async (req, res) => {
-    const sessionExists = fs.existsSync(`${SESSION_DIR}/creds.json`);
-    
-    if (sessionExists) {
-        res.send(`
-        <html>
-        <head><title>ADEZ XMD</title>
-        <style>
-            body { font-family: Arial; text-align: center; background: #f0f0f0; padding: 20px; }
-            .container { max-width: 400px; margin: auto; background: white; padding: 30px; border-radius: 15px; }
-            .status { background: #25D366; color: white; padding: 10px; border-radius: 5px; }
-        </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>🔴 ADEZ XMD</h1>
-                <div class="status">🟢 ONLINE</div>
-                <p><strong>Owner:</strong> ${OWNER.name}</p>
-                <p><strong>Number:</strong> +${OWNER.number}</p>
-                <p>Send <code>!ping</code> to test.</p>
-            </div>
-        </body>
-        </html>
-        `);
-    } else {
-        res.send(`
-        <html>
-        <head><title>ADEZ XMD</title>
-        <meta http-equiv="refresh" content="10">
-        <style>
-            body { font-family: Arial; text-align: center; background: #f0f0f0; padding: 20px; }
-            .container { max-width: 400px; margin: auto; background: white; padding: 30px; border-radius: 15px; }
-            .status { background: #ffa500; color: white; padding: 10px; border-radius: 5px; }
-        </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>🔴 ADEZ XMD</h1>
-                <div class="status">⏳ Waiting for QR...</div>
-                <p>Check your Render Logs for your Pairing Code!</p>
-                <p><strong>Owner:</strong> ${OWNER.name}</p>
-                <p><strong>Number:</strong> +${OWNER.number}</p>
-            </div>
-        </body>
-        </html>
-        `);
-    }
-});
-
-app.listen(PORT, () => {
-    console.log(`🌐 Web UI: http://localhost:${PORT}`);
-});
-
 // --- BOT ---
+let codeGenerated = false;
+
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
     
@@ -89,7 +15,6 @@ async function startBot() {
 
     global.sock = sock;
 
-    // QR Handler (fallback)
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
@@ -100,10 +25,20 @@ async function startBot() {
         if (connection === 'close') {
             const statusCode = lastDisconnect?.error?.output?.statusCode;
             console.log(`❌ Disconnected: ${statusCode || 'unknown'}`);
-            if (statusCode !== 405) {
-                setTimeout(startBot, 5000);
+            
+            // Only reconnect if session doesn't exist yet
+            if (!fs.existsSync(`${SESSION_DIR}/creds.json`)) {
+                if (!codeGenerated) {
+                    console.log('🔄 Retrying to generate code...');
+                    setTimeout(startBot, 10000);
+                } else {
+                    console.log('⏳ Waiting for you to enter the pair code...');
+                    // Keep the bot alive but don't regenerate
+                    setTimeout(startBot, 60000);
+                }
             } else {
-                setTimeout(startBot, 30000);
+                console.log('✅ Session found. Reconnecting normally...');
+                setTimeout(startBot, 5000);
             }
         }
 
@@ -111,22 +46,22 @@ async function startBot() {
             console.log('✅ ADEZ XMD is ONLINE!');
             console.log(`👤 Owner: ${OWNER.name}`);
             console.log(`📞 +${OWNER.number}`);
-            
-            // Send a startup message to the owner (optional)
-            // await sock.sendMessage(`${OWNER.number}@s.whatsapp.net`, { text: '✅ Bot is now online!' });
         }
     });
 
-    // --- AUTO-PAIR CODE GENERATION ON FIRST START ---
-    if (!fs.existsSync(`${SESSION_DIR}/creds.json`)) {
-        console.log('🔑 No session found. Generating Pair Code for owner...');
+    // --- AUTO-PAIR CODE GENERATION (ONCE) ---
+    if (!fs.existsSync(`${SESSION_DIR}/creds.json`) && !codeGenerated) {
+        console.log('🔑 No session found. Generating SINGLE Pair Code...');
         try {
             const code = await sock.requestPairingCode(OWNER.number);
+            codeGenerated = true;
             console.log('=========================================');
             console.log(`📱 PAIRING CODE FOR +${OWNER.number}: ${code}`);
             console.log('=========================================');
+            console.log('⚠️ DO NOT RESTART THE BOT UNTIL YOU ENTER THIS CODE!');
             console.log('Open WhatsApp → Settings → Linked Devices → Link with Phone Number');
             console.log(`Enter the code: ${code}`);
+            console.log('⏳ The bot will keep trying to connect for 60 seconds.');
         } catch (e) {
             console.log('❌ Failed to generate pair code:', e.message);
         }
@@ -165,6 +100,3 @@ async function startBot() {
 
     sock.ev.on('creds.update', saveCreds);
 }
-
-// Start bot
-startBot();
